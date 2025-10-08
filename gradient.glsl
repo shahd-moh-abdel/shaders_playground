@@ -58,6 +58,19 @@ float neuralNoise(vec2 p, float time)
   return accum;
 }
 
+vec2 warp(vec2 p, float time)
+{
+  vec2 q = vec2(
+		fbm(p + vec2(0.0, 0.0)),
+		fbm(p + vec2(5.2, 1.3))
+		);
+  vec2 r = vec2(
+		fbm(p + 4.0 * q + vec2(1.7 + time * 0.15, 9.2)),
+		fbm(p + 4.0 * q + vec2(8.3 + time * 0.12, 2.8))
+		);
+  return r;
+}
+
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
   vec2 uv = (fragCoord + fragCoord - iResolution.xy) / iResolution.y;
@@ -72,21 +85,23 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
   float dist = length(uv);
   float angle = atan(uv.y, uv.x);
 
-  vec2 noiseCoord = uv * 2.0 + time * 0.5;
+  vec2 warped = warp(uv * 2.0, time);
+  
+  vec2 noiseCoord = uv * 2.0 + warped * 0.5 + time * 0.5;
   float n = fbm(noiseCoord);
 
-  float neural = neuralNoise(uv * 1.5, time * 2.0);
+  float neural = neuralNoise(uv * 1.5 + warped * 0.3,  time * 2.0);
 
-  float pattern = dist * 3.0 + n * 2.0 + neural * 0.5 - time;
+  float pattern = dist * 3.0 + n * 2.0 + neural * 0.5 + warped.x * 0.5 - time;
   
   vec3 col = vec3(
-		  0.5 + 0.5 * sin(pattern + neural),
-		  0.5 + 0.5 * cos(angle * 2.0 + n * 2.0 + time),
-		  0.5 + 0.5 * sin(pattern * 1.3 + neural * 0.8)
+		  0.5 + 0.5 * sin(pattern + neural + warped.y),
+		  0.5 + 0.5 * cos(angle * 2.0 + n * 2.0 + warped.x + time),
+		  0.5 + 0.5 * sin(pattern * 1.3 + neural * 0.8 + warped.y * 0.5)
 		  );
 
-  col *= 1.0 - dist * 0.3;
-  col *= 0.9 + 0.1 * neural;
+  float intensity = 0.9 + 0.1 * neural * length(warped);
+  col *= intensity * (1.0 - dist * 0.3);
   
   
   fragColor = vec4(col, 1.0);
